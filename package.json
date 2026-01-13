@@ -1,0 +1,27 @@
+{
+  "name": "prisma-app",
+  "version": "1.0.0",
+  "main": "web/index.js",
+  "license": "UNLICENSED",
+  "scripts": {
+    "shopify": "shopify",
+    "build": "shopify app build",
+    "dev": "shopify app dev",
+    "info": "shopify app info",
+    "generate": "shopify app generate",
+    "deploy": "shopify app deploy"
+  },
+  "author": "DELL",
+  "private": true,
+  "workspaces": [
+    "extensions/*",
+    "web",
+    "web/frontend"
+  ],
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "@shopify/shopify-app-session-storage-prisma": "^8.0.0",
+    "dotenv": "^17.2.3",
+    "prisma": "^6.19.0"
+  }
+}
