@@ -1,0 +1,780 @@
+{
+  "version": "filterRegistry.v1",
+  "revision": "1.2",
+  "scope": "shopify_public_embedded_app_multi_tenant",
+  "dbNaming": { "tables": "snake_case", "columns": "snake_case" },
+
+  "defaults": {
+    "tenantKey": "shop",
+    "variantQuantifierDefault": "ANY",
+    "variantAtomicityDefault": "PER_VARIANT",
+    "fastPlaneRule": "FAST only if index-safe in ProductLite / Rollups / Join tables (no scans, no contains, no JSON/metafields). Otherwise SNAPSHOT.",
+    "snapshotPlaneRule": "SNAPSHOT evaluated via Shopify (GraphQL search when possible, else Bulk Operation) and cached as productId set."
+  },
+
+  "operators": {
+    "common": ["eq", "neq", "in", "nin"],
+    "ordered": ["gt", "gte", "lt", "lte", "between"],
+    "presence": ["isnull", "notnull"],
+    "boolean": ["is"]
+  },
+
+  "operatorArity": {
+    "eq": 1,
+    "neq": 1,
+    "gt": 1,
+    "gte": 1,
+    "lt": 1,
+    "lte": 1,
+    "in": "N",
+    "nin": "N",
+    "between": 2,
+    "isnull": 0,
+    "notnull": 0,
+    "is": 1
+  },
+
+  "valueTypeContracts": {
+    "gid": { "kind": "string", "pattern": "^gid://shopify/.+/.+$" },
+    "datetime": { "kind": "string", "format": "iso8601" },
+
+    "money": {
+      "kind": "number",
+      "notes": "FAST rollups must be numeric in Postgres (numeric/decimal). SNAPSHOT may still ingest strings but evaluator must coerce to number before range ops."
+    },
+
+    "number": { "kind": "number" },
+    "boolean": { "kind": "boolean" },
+    "string": { "kind": "string" },
+    "enum": { "kind": "string" },
+
+    "metafield": {
+      "kind": "object",
+      "required": ["namespace", "key", "op", "value"],
+      "properties": {
+        "namespace": { "kind": "string" },
+        "key": { "kind": "string" },
+        "op": { "kind": "string", "enum": ["eq", "neq", "in", "nin"] },
+        "value": { "kind": "string" }
+      },
+      "notes": "Metafield value is treated as string for deterministic no-drift behavior. Typed metafields can be added later with explicit type metadata."
+    }
+  },
+
+  "tiers": {
+    "FAST": {
+      "description": "Index-backed SQL on Postgres minimal replicated tables (product_lite, variant_rollups, product_tag, product_collection)."
+    },
+    "SNAPSHOT": {
+      "description": "Shopify-side evaluation (search/BulkOps) cached as productId set; used for text/metafields/variant-atomic predicates."
+    }
+  },
+
+  "sources": {
+    "product_lite": {
+      "table": "product_lite",
+      "requiredColumns": [
+        "shop_id",
+        "product_id",
+        "status",
+        "vendor",
+        "product_type",
+        "handle",
+        "created_at",
+        "updated_at",
+        "published_at"
+      ]
+    },
+    "variant_rollups": {
+      "table": "variant_rollups",
+      "requiredColumns": [
+        "shop_id",
+        "product_id",
+        "variant_count",
+        "total_inventory",
+        "min_price",
+        "max_price",
+        "in_stock"
+      ]
+    },
+    "product_tag": {
+      "table": "product_tag",
+      "requiredColumns": ["shop_id", "product_id", "tag"]
+    },
+    "product_collection": {
+      "table": "product_collection",
+      "requiredColumns": ["shop_id", "product_id", "collection_id"]
+    }
+  },
+
+  "joinSpecs": {
+    "product_tag": {
+      "leftTable": "product_lite",
+      "leftKey": "product_id",
+      "rightTable": "product_tag",
+      "rightKey": "product_id"
+    },
+    "product_collection": {
+      "leftTable": "product_lite",
+      "leftKey": "product_id",
+      "rightTable": "product_collection",
+      "rightKey": "product_id"
+    }
+  },
+
+  "joinNegationPolicy": {
+    "default": "NOT_EXISTS",
+    "notes": "For join-table filters, 'nin' MUST compile to NOT EXISTS(...) scoped by (shop_id, product_id) with the same membership predicate as 'in'."
+  },
+
+  "snapshotCompile": {
+    "strategies": ["SHOPIFY_SEARCH", "BULKOP"],
+    "bulkShapes": {
+      "PRODUCTS_ONLY": {
+        "description": "BulkOp fetch product fields only",
+        "fields": [
+          "id",
+          "title",
+          "handle",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "publishedAt",
+          "templateSuffix",
+          "descriptionHtml",
+          "seo",
+          "onlineStoreUrl"
+        ]
+      },
+      "PRODUCTS_WITH_VARIANTS": {
+        "description": "BulkOp fetch product + variants necessary for variant-derived predicates",
+        "fields": [
+          "id",
+          "title",
+          "handle",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "publishedAt",
+          "templateSuffix",
+          "descriptionHtml",
+          "seo"
+        ],
+        "variantFields": [
+          "id",
+          "sku",
+          "barcode",
+          "title",
+          "createdAt",
+          "updatedAt",
+          "price",
+          "compareAtPrice",
+          "weight",
+          "requiresShipping",
+          "taxable",
+          "inventoryPolicy",
+          "inventoryItem { tracked }",
+          "selectedOptions { name value }",
+          "metafields(first: 250) { edges { node { namespace key type value } } }"
+        ],
+        "productMetafields": "metafields(first: 250) { edges { node { namespace key type value } } }"
+      }
+    }
+  },
+
+  "filters": [
+    {
+      "key": "product.productId",
+      "label": "Product ID",
+      "tier": "FAST",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "source": { "kind": "column", "table": "product_lite", "column": "product_id" },
+      "indexesRequired": ["UNIQUE product_lite(shop_id, product_id)"],
+      "notes": "DB column product_lite.product_id is BIGINT. DSL value must be a decimal string; compiler/orchestrator must cast params to BIGINT/BIGINT[].",
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.status",
+      "label": "Status",
+      "tier": "FAST",
+      "valueType": "enum",
+      "enumValues": ["ACTIVE", "ARCHIVED", "DRAFT"],
+      "operators": ["eq", "in"],
+      "source": { "kind": "column", "table": "product_lite", "column": "status" },
+      "indexesRequired": ["product_lite(shop_id, status, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.vendor",
+      "label": "Vendor",
+      "tier": "FAST",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "source": { "kind": "column", "table": "product_lite", "column": "vendor" },
+      "indexesRequired": ["product_lite(shop_id, vendor, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.type",
+      "label": "Product Type (Custom)",
+      "tier": "FAST",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "source": { "kind": "column", "table": "product_lite", "column": "product_type" },
+      "indexesRequired": ["product_lite(shop_id, product_type, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.handle",
+      "label": "Handle (URL)",
+      "tier": "FAST",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "source": { "kind": "column", "table": "product_lite", "column": "handle" },
+      "indexesRequired": ["product_lite(shop_id, handle, product_id)"],
+      "notes": "Deliberately excludes contains/like to preserve index-safety.",
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.createdAt",
+      "label": "Date Created",
+      "tier": "FAST",
+      "valueType": "datetime",
+      "operators": ["gte", "lte", "between"],
+      "source": { "kind": "column", "table": "product_lite", "column": "created_at" },
+      "indexesRequired": ["product_lite(shop_id, created_at, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.updatedAt",
+      "label": "Date Updated",
+      "tier": "FAST",
+      "valueType": "datetime",
+      "operators": ["gte", "lte", "between"],
+      "source": { "kind": "column", "table": "product_lite", "column": "updated_at" },
+      "indexesRequired": ["product_lite(shop_id, updated_at, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.publishedAt",
+      "label": "Date Published",
+      "tier": "FAST",
+      "valueType": "datetime",
+      "operators": ["gte", "lte", "between", "isnull", "notnull"],
+      "source": { "kind": "column", "table": "product_lite", "column": "published_at" },
+      "indexesRequired": [
+        "product_lite(shop_id, published_at, product_id)",
+        "OPTIONAL partial: product_lite(shop_id, product_id) WHERE published_at IS NULL"
+      ],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.collectionId",
+      "label": "Collection",
+      "tier": "FAST",
+      "valueType": "string",
+      "operators": ["in", "nin"],
+      "source": { "kind": "join", "table": "product_collection", "column": "collection_id" },
+      "joinSemantics": { "membership": "ANY", "negation": "NOT_EXISTS" },
+      "indexesRequired": ["product_collection(shop_id, collection_id, product_id)"],
+      "notes": "DB column product_collection.collection_id is BIGINT. DSL values must be decimal strings; FAST join compiler must cast param to BIGINT[] for ANY().",
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.tag",
+      "label": "Tag",
+      "tier": "FAST",
+      "valueType": "string",
+      "operators": ["in", "nin"],
+      "source": { "kind": "join", "table": "product_tag", "column": "tag" },
+      "joinSemantics": { "membership": "ANY", "negation": "NOT_EXISTS" },
+      "indexesRequired": ["product_tag(shop_id, tag, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.variantCount",
+      "label": "Variant Count",
+      "tier": "FAST",
+      "valueType": "number",
+      "operators": ["eq", "gte", "lte", "between"],
+      "source": { "kind": "column", "table": "variant_rollups", "column": "variant_count" },
+      "indexesRequired": ["variant_rollups(shop_id, variant_count, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_PRODUCT_ROLLUP" }
+    },
+    {
+      "key": "product.inventoryQuantity",
+      "label": "Inventory Quantity (Total)",
+      "tier": "FAST",
+      "valueType": "number",
+      "operators": ["eq", "gte", "lte", "between"],
+      "source": { "kind": "column", "table": "variant_rollups", "column": "total_inventory" },
+      "indexesRequired": ["variant_rollups(shop_id, total_inventory, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_PRODUCT_ROLLUP" }
+    },
+    {
+      "key": "variant.priceMin",
+      "label": "Variant Price (Min)",
+      "tier": "FAST",
+      "valueType": "money",
+      "operators": ["gte", "lte", "between"],
+      "source": { "kind": "column", "table": "variant_rollups", "column": "min_price" },
+      "indexesRequired": ["variant_rollups(shop_id, min_price, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_PRODUCT_ROLLUP" }
+    },
+    {
+      "key": "variant.priceMax",
+      "label": "Variant Price (Max)",
+      "tier": "FAST",
+      "valueType": "money",
+      "operators": ["gte", "lte", "between"],
+      "source": { "kind": "column", "table": "variant_rollups", "column": "max_price" },
+      "indexesRequired": ["variant_rollups(shop_id, max_price, product_id)"],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_PRODUCT_ROLLUP" }
+    },
+    {
+      "key": "variant.inStock",
+      "label": "In Stock (Any Variant)",
+      "tier": "FAST",
+      "valueType": "boolean",
+      "operators": ["is"],
+      "source": { "kind": "column", "table": "variant_rollups", "column": "in_stock" },
+      "indexesRequired": [
+        "variant_rollups(shop_id, in_stock, product_id)",
+        "OPTIONAL partial: variant_rollups(shop_id, product_id) WHERE in_stock = true"
+      ],
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_PRODUCT_ROLLUP" }
+    },
+
+    {
+      "key": "product.title",
+      "label": "Title",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "SHOPIFY_SEARCH",
+        "queryTemplate": "title:{value}",
+        "notes": "Exact match depends on Shopify search behavior. Evaluator should treat eq/in as query fragments and fall back to BULKOP if search yields unsupported/empty behavior."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.description",
+      "label": "Description",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_ONLY",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "descriptionHtml",
+          "match": "EQ_OR_IN_STRING",
+          "caseSensitive": false
+        },
+        "notes": "Shopify product search does not reliably support description/body matching across plans. Deterministic path is BulkOp + local filter."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.seoVisibility",
+      "label": "Search Engine Visibility (SEO)",
+      "tier": "SNAPSHOT",
+      "valueType": "boolean",
+      "operators": ["is"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_ONLY",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "seo",
+          "match": "SEO_VISIBILITY_BOOL"
+        },
+        "notes": "Deterministic via BulkOp: derive boolean based on presence/shape of SEO fields (implementation-defined but consistent)."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.visibleOnlineStore",
+      "label": "Visible on Online Store (web)",
+      "tier": "SNAPSHOT",
+      "valueType": "boolean",
+      "operators": ["is"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_ONLY",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "onlineStoreUrl",
+          "match": "PRESENT_BOOL"
+        },
+        "notes": "Deterministic heuristic: onlineStoreUrl present => visible online store (implementation-defined). Adjust if you later use Publication APIs."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.visiblePOS",
+      "label": "Visible on Point of Sale (POS)",
+      "tier": "SNAPSHOT",
+      "valueType": "boolean",
+      "operators": ["is"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_ONLY",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "status",
+          "match": "POS_VISIBILITY_BOOL"
+        },
+        "notes": "POS visibility is not a stable Shopify-searchable attribute. Treat as BulkOp-derived predicate (define rule in evaluator and keep consistent)."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+    {
+      "key": "product.template",
+      "label": "Theme Template",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_ONLY",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "templateSuffix",
+          "match": "EQ_OR_IN_STRING",
+          "caseSensitive": true
+        },
+        "notes": "Move to FAST only if stored as product_lite.template_suffix with index product_lite(shop_id, template_suffix, product_id)."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    },
+
+    {
+      "key": "variant.sku",
+      "label": "SKU",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "SHOPIFY_SEARCH",
+        "queryTemplate": "sku:{value}",
+        "fallback": {
+          "strategy": "BULKOP",
+          "bulkShape": "PRODUCTS_WITH_VARIANTS",
+          "postFilter": {
+            "op": "LOCAL_EVAL",
+            "path": "variants[].sku",
+            "match": "EQ_OR_IN_STRING",
+            "caseSensitive": true,
+            "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+          }
+        },
+        "notes": "Shopify search often supports sku: queries; enforce deterministic fallback to BulkOp if unsupported."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.barcode",
+      "label": "Barcode",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "SHOPIFY_SEARCH",
+        "queryTemplate": "barcode:{value}",
+        "fallback": {
+          "strategy": "BULKOP",
+          "bulkShape": "PRODUCTS_WITH_VARIANTS",
+          "postFilter": {
+            "op": "LOCAL_EVAL",
+            "path": "variants[].barcode",
+            "match": "EQ_OR_IN_STRING",
+            "caseSensitive": true,
+            "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+          }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.compareAtPrice",
+      "label": "Compare-at Price",
+      "tier": "SNAPSHOT",
+      "valueType": "money",
+      "operators": ["gte", "lte", "between"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].compareAtPrice",
+          "match": "RANGE_NUMERIC",
+          "coerce": "NUMBER",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.weight",
+      "label": "Weight",
+      "tier": "SNAPSHOT",
+      "valueType": "number",
+      "operators": ["gte", "lte", "between"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].weight",
+          "match": "RANGE_NUMERIC",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.requiresShipping",
+      "label": "Requires Shipping",
+      "tier": "SNAPSHOT",
+      "valueType": "boolean",
+      "operators": ["is"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].requiresShipping",
+          "match": "BOOL_IS",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.taxable",
+      "label": "Taxable",
+      "tier": "SNAPSHOT",
+      "valueType": "boolean",
+      "operators": ["is"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].taxable",
+          "match": "BOOL_IS",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.inventoryTracked",
+      "label": "Inventory Tracked",
+      "tier": "SNAPSHOT",
+      "valueType": "boolean",
+      "operators": ["is"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].inventoryItem.tracked",
+          "match": "BOOL_IS",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.inventoryPolicy",
+      "label": "Inventory Policy",
+      "tier": "SNAPSHOT",
+      "valueType": "enum",
+      "enumValues": ["DENY", "CONTINUE"],
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].inventoryPolicy",
+          "match": "EQ_OR_IN_STRING",
+          "caseSensitive": true,
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.title",
+      "label": "Variant Title",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].title",
+          "match": "EQ_OR_IN_STRING",
+          "caseSensitive": false,
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.createdAt",
+      "label": "Variant Created At",
+      "tier": "SNAPSHOT",
+      "valueType": "datetime",
+      "operators": ["gte", "lte", "between"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].createdAt",
+          "match": "RANGE_DATETIME",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.updatedAt",
+      "label": "Variant Updated At",
+      "tier": "SNAPSHOT",
+      "valueType": "datetime",
+      "operators": ["gte", "lte", "between"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].updatedAt",
+          "match": "RANGE_DATETIME",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.option1Name",
+      "label": "Option 1 Name",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].selectedOptions[name=Option1].value",
+          "match": "EQ_OR_IN_STRING",
+          "caseSensitive": false,
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        },
+        "notes": "Deterministic evaluator must map Option1/2/3 consistently. If option names vary, switch to index-based by position rather than label."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.option2Name",
+      "label": "Option 2 Name",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].selectedOptions[name=Option2].value",
+          "match": "EQ_OR_IN_STRING",
+          "caseSensitive": false,
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "variant.option3Name",
+      "label": "Option 3 Name",
+      "tier": "SNAPSHOT",
+      "valueType": "string",
+      "operators": ["eq", "in"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].selectedOptions[name=Option3].value",
+          "match": "EQ_OR_IN_STRING",
+          "caseSensitive": false,
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        }
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+
+    {
+      "key": "variant.metafield",
+      "label": "Variant Metafield",
+      "tier": "SNAPSHOT",
+      "valueType": "metafield",
+      "operators": ["eq", "neq", "in", "nin"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "variants[].metafields",
+          "match": "METAFIELD_MATCH",
+          "collapseToProductIds": { "derivedFrom": "VARIANTS", "quantifier": "ANY" }
+        },
+        "metafieldShape": { "namespaceKeyFields": ["namespace", "key"], "valueField": "value", "typeField": "type" },
+        "notes": "Evaluator finds metafield where namespace+key matches, then applies op to string value."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "VARIANTS", "quantifier": "ANY", "atomicity": "PER_VARIANT" }
+    },
+    {
+      "key": "product.metafield",
+      "label": "Product Metafield",
+      "tier": "SNAPSHOT",
+      "valueType": "metafield",
+      "operators": ["eq", "neq", "in", "nin"],
+      "snapshot": {
+        "strategy": "BULKOP",
+        "bulkShape": "PRODUCTS_WITH_VARIANTS",
+        "postFilter": {
+          "op": "LOCAL_EVAL",
+          "path": "product.metafields",
+          "match": "METAFIELD_MATCH"
+        },
+        "metafieldShape": { "namespaceKeyFields": ["namespace", "key"], "valueField": "value", "typeField": "type" },
+        "notes": "Evaluator finds metafield where namespace+key matches, then applies op to string value."
+      },
+      "semantics": { "scope": "PRODUCT", "derivedFrom": "NONE", "quantifier": "ANY", "atomicity": "PER_PRODUCT" }
+    }
+  ],
+
+  "integrity": {
+    "noDriftRules": [
+      "Every filter key used by the frontend must exist here.",
+      "Planner must split strictly by tier: FAST leaves compile to SQL; SNAPSHOT leaves compile to snapshot spec.",
+      "Compiler.fast must reject any operator not listed in this registry.",
+      "Snapshot evaluator must reject any operator not listed in this registry.",
+      "All FAST sources must map to declared tables/columns/join tables; no ad-hoc SQL columns allowed.",
+      "All operators must satisfy operatorArity.",
+      "Join-table 'nin' must compile to NOT EXISTS (never LEFT JOIN ... IS NULL) to preserve correctness and index usage.",
+      "Snapshot compile must be deterministic: either SHOPIFY_SEARCH queryTemplate or BULKOP bulkShape + postFilter."
+    ]
+  }
+}
