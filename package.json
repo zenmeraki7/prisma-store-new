@@ -1,6 +1,7 @@
 {
   "name": "prisma-app",
   "version": "1.0.0",
+  "type": "module",
   "main": "web/index.js",
   "license": "UNLICENSED",
   "scripts": {

@@ -2,7 +2,10 @@ import { ApiVersion } from "@shopify/shopify-api";
 import { shopifyApp } from "@shopify/shopify-app-express";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import { restResources } from "@shopify/shopify-api/rest/admin/2024-10";
-import prisma from "../lib/prisma.server.js";
+import prisma from "../lib/prisma.js";
+
+
+console.log("Prisma delegates:", Object.keys(prisma));
 
 const shopify = shopifyApp({
   api: {
