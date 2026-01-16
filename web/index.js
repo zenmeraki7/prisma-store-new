@@ -16,10 +16,11 @@ const PORT = parseInt(
   10
 );
 
+// FIX: Corrected path calculation
 const STATIC_PATH =
   process.env.NODE_ENV === "production"
-    ? join(process.cwd(), "web/frontend/dist")
-    : join(process.cwd(), "web/frontend");
+    ? join(process.cwd(), "frontend/dist")
+    : join(process.cwd(), "frontend");
 
 const app = express();
 

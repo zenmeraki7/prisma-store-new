@@ -9,6 +9,7 @@ import {
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { useTranslation, Trans } from "react-i18next";
+import Products from "./Products";
 // import SessionDashboard from "../components/SessionDashboard";
 
 export default function HomePage() {
@@ -16,10 +17,10 @@ export default function HomePage() {
   return (
     <Page narrowWidth>
       <TitleBar title={t("HomePage.title")} />
-      <Layout>
+     
       
-        {/* <SessionDashboard /> */}
-      </Layout>
+       <Products/>
+    
     </Page>
   );
 }
