@@ -2,7 +2,7 @@
 
 client_id = "eb982c18ff9757d9ff6c7b947f1bd927"
 name = "prisma-app"
-application_url = "https://3873412a64a6.ngrok-free.app"
+application_url = "https://05d0ad578606.ngrok-free.app"
 embedded = true
 
 [webhooks]
@@ -13,7 +13,7 @@ api_version = "2026-04"
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://3873412a64a6.ngrok-free.app/api/auth/callback" ]
+redirect_urls = [ "https://05d0ad578606.ngrok-free.app/api/auth/callback" ]
 
 [build]
 automatically_update_urls_on_dev = true

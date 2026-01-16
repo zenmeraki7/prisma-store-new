@@ -1,17 +1,12 @@
-// web/routes/shopifyproducts.js
 import shopify from "../shopify.js";
 
-/**
- * Fetch all products from Shopify store
- * @param {import("@shopify/shopify-api").Session} session
- */
 export async function fetchAllProducts(session) {
-  const client = new shopify.api.clients.Rest({
-    session,
-  });
+  console.log("📡 Fetching products from Shopify REST API");
+
+  const client = new shopify.api.clients.Rest({ session });
 
   const products = [];
-  let pageInfo = undefined;
+  let pageInfo;
 
   do {
     const response = await client.get({
@@ -22,8 +17,11 @@ export async function fetchAllProducts(session) {
       },
     });
 
-    products.push(...response.body.products);
+    console.log(
+      `➡️ Received ${response.body.products.length} products`
+    );
 
+    products.push(...response.body.products);
     pageInfo = response.pageInfo?.nextPage?.query?.page_info;
   } while (pageInfo);
 

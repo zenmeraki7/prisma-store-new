@@ -23,6 +23,8 @@ const STATIC_PATH =
     : join(process.cwd(), "frontend");
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /* ---------------- Shopify Auth ---------------- */
 
