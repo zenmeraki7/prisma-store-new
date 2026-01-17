@@ -7,7 +7,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Authentication (required for Shopify)
+model Product {
+  id        String    @id @default(cuid())
+  shop      String
+  title     String
+  status    String
+  vendor    String?
+  image     String?
+  createdAt DateTime  @default(now())
+  variants  Variant[]
+
+  @@unique([shop, id]) // <- composite unique
+}
+
+model Variant {
+  id        String  @id @default(cuid())
+  shopifyId String  @unique
+  title     String
+  price     Float
+  sku       String?
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
 model Session {
   id                  String   @id
   shop                String
@@ -26,29 +48,6 @@ model Session {
   emailVerified       Boolean  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
-}
 
-
-// Product data (optional storage)
-model Product {
-  id        String    @id @default(cuid())
-  shop      String
-  title     String
-  status    String
-  vendor    String?
-  image     String?
-  createdAt DateTime  @default(now())
-  variants  Variant[]
-
-  @@index([shop])
-}
-
-model Variant {
-  id        String  @id @default(cuid())
-  shopifyId String  @unique
-  title     String
-  price     Float
-  sku       String?
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  @@map("session") // ✅ REQUIRED
 }
