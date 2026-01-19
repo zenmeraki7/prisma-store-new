@@ -52,3 +52,15 @@ model Session {
 
   @@map("session") // ✅ REQUIRED
 }
+
+model VariantRollup {
+  id             String   @id @default(cuid())
+  shop           String
+  productId      String
+  variantCount   Int      @default(0)
+  totalInventory Int      @default(0)
+  minPrice       Float    @default(0)
+  maxPrice       Float    @default(0)
+
+  @@unique([shop, productId], name: "shop_product_rollup")
+}

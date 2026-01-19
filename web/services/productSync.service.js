@@ -35,7 +35,38 @@ export async function syncProducts(session) {
       },
     });
 
-    upserted++;
+      // --- NEW: Rollup calculation ---
+  const variantCount = p.variants.length;
+  const totalInventory = p.variants.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0);
+  const prices = p.variants.map(v => parseFloat(v.price));
+  const minPrice = prices.length ? Math.min(...prices) : 0;
+  const maxPrice = prices.length ? Math.max(...prices) : 0;
+
+  await prisma.variantRollup.upsert({
+    where: {
+      shop_product_rollup: {
+        shop: session.shop,
+        productId: product.id,
+      },
+    },
+    update: {
+      variantCount,
+      totalInventory,
+      minPrice,
+      maxPrice,
+    },
+    create: {
+      shop: session.shop,
+      productId: product.id,
+      variantCount,
+      totalInventory,
+      minPrice,
+      maxPrice,
+    },
+  });
+
+  upserted++;
+
   }
 
   console.log(`✅ Synced ${upserted} products for ${session.shop}`);
