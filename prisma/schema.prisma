@@ -17,8 +17,9 @@ model Product {
   createdAt DateTime  @default(now())
   variants  Variant[]
 
-  @@unique([shop, id]) // <- composite unique
+  @@unique([shop, id], name: "shop_id") // 👈 NAME IT
 }
+
 
 model Variant {
   id        String  @id @default(cuid())
