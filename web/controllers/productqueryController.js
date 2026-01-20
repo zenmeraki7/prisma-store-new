@@ -41,13 +41,28 @@ export async function queryProducts(req, res) {
     const orderBy = { [SORT_FIELD]: direction === "next" ? "asc" : "desc" };
 
     // Fetch products
-    const products = await prisma.product.findMany({
-      where,
-      orderBy,
-      take: limit + 1,
-      cursor: cursorId ? { id: cursorId } : undefined,
-      skip: cursorId ? 1 : 0,
-    });
+const products = await prisma.product.findMany({
+  where: {
+    shop,
+    id: {
+      in: await prisma.variantRollup.findMany({
+        where: {
+          shop,
+          inStock: true,
+          totalInventory: { gt: 0 },
+          minPrice: { gte: 500 },
+          maxPrice: { lte: 3000 },
+        },
+        select: { productId: true },
+      }).then(rows => rows.map(r => r.productId)),
+    },
+  },
+  orderBy: { id: direction === "next" ? "asc" : "desc" },
+  take: limit + 1,
+  cursor: cursorId ? { id: cursorId } : undefined,
+  skip: cursorId ? 1 : 0,
+});
+
 
     const hasExtra = products.length > limit;
     const pageDocs = hasExtra ? products.slice(0, limit) : products;

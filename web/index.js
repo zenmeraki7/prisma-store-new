@@ -38,11 +38,18 @@ app.get(
 
     if (session) {
       try {
-        const { syncProducts } = await import(
-          "./services/productSync.service.js"
-        );
-        await syncProducts(session);
-        console.log(`✅ Products synced for ${session.shop}`);
+     const { syncProducts } = await import(
+  "./services/productSync.service.js"
+);
+const { refreshVariantRollups } = await import(
+  "./services/variantRollup.service.js"
+);
+
+await syncProducts(session);
+await refreshVariantRollups(session.shop);
+
+console.log(`✅ Products synced + snapshots refreshed for ${session.shop}`);
+  
       } catch (err) {
         console.error("❌ Product sync failed:", err);
       }

@@ -51,3 +51,21 @@ model Session {
 
   @@map("session")
 }
+
+model VariantRollup {
+  shop           String
+  productId      String
+
+  variantCount   Int
+  totalInventory Int
+  minPrice       Decimal?
+  maxPrice       Decimal?
+  inStock        Boolean
+  updatedAt      DateTime @updatedAt
+
+  @@id([shop, productId])
+  @@index([shop, totalInventory])
+  @@index([shop, minPrice])
+  @@index([shop, maxPrice])
+  @@index([shop, inStock])
+}
