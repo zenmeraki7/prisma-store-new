@@ -1,4 +1,4 @@
-import { HashRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { NavMenu } from "@shopify/app-bridge-react";
 import Routes from "./Routes";
@@ -13,18 +13,22 @@ export default function App() {
   const { t } = useTranslation();
 
   return (
-    <PolarisProvider>
-      <HashRouter>
-        <QueryProvider>
-          <NavMenu>
-            <a href="#/" rel="home" />
-            <a href="#/Products">{t("NavigationMenu.Products")}</a>
+   
+      <PolarisProvider>
+        <BrowserRouter>
+          <QueryProvider>
+            <NavMenu>
+              <a href="/" rel="home" />
+              <a href="/Products">
+                {t("NavigationMenu.Products")}
+              </a>
+          
+            </NavMenu>
 
-          </NavMenu>
-
-          <Routes pages={pages} />
-        </QueryProvider>
-      </HashRouter>
-    </PolarisProvider>
+            <Routes pages={pages} />
+          </QueryProvider>
+        </BrowserRouter>
+      </PolarisProvider>
+  
   );
 }

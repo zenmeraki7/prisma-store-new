@@ -2,7 +2,7 @@
 
 client_id = "eb982c18ff9757d9ff6c7b947f1bd927"
 name = "prisma-app"
-application_url = "https://raised-helmet-trucks-garden.trycloudflare.com"
+application_url = "https://renewal-loud-phases-believed.trycloudflare.com"
 embedded = true
 
 [webhooks]
@@ -13,7 +13,7 @@ api_version = "2026-04"
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://raised-helmet-trucks-garden.trycloudflare.com/api/auth/callback" ]
+redirect_urls = [ "https://renewal-loud-phases-believed.trycloudflare.com/api/auth/callback" ]
 
 [build]
 automatically_update_urls_on_dev = true

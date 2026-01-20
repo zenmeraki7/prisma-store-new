@@ -17,9 +17,8 @@ model Product {
   createdAt DateTime  @default(now())
   variants  Variant[]
 
-  @@unique([shop, id], name: "shop_id") // 👈 NAME IT
+  @@unique([shop, id], name: "shop_id")
 }
-
 
 model Variant {
   id        String  @id @default(cuid())
@@ -32,35 +31,23 @@ model Variant {
 }
 
 model Session {
-  id                  String   @id
+  id                  String    @id
   shop                String
   state               String
-  isOnline            Boolean  @default(false)
+  isOnline            Boolean   @default(false)
+  accessToken         String    @default("")
   scope               String?
   expires             DateTime?
-  accessToken         String   @default("")
-  userId              BigInt?
+  accountOwner        Boolean   @default(false)
+  collaborator        Boolean   @default(false)
+  email               String?
+  emailVerified       Boolean   @default(false)
   firstName           String?
   lastName            String?
-  email               String?
-  accountOwner        Boolean  @default(false)
   locale              String?
-  collaborator        Boolean  @default(false)
-  emailVerified       Boolean  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+  userId              BigInt?
 
-  @@map("session") // ✅ REQUIRED
-}
-
-model VariantRollup {
-  id             String   @id @default(cuid())
-  shop           String
-  productId      String
-  variantCount   Int      @default(0)
-  totalInventory Int      @default(0)
-  minPrice       Float    @default(0)
-  maxPrice       Float    @default(0)
-
-  @@unique([shop, productId], name: "shop_product_rollup")
+  @@map("session")
 }
