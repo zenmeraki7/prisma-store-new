@@ -13,7 +13,6 @@ import { useTranslation, Trans } from "react-i18next";
 
 import { trophyImage } from "../assets";
 
-import { ProductsCard } from "../components";
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -84,9 +83,7 @@ export default function HomePage() {
             </InlineStack>
           </Card>
         </Layout.Section>
-        <Layout.Section>
-          <ProductsCard />
-        </Layout.Section>
+       
       </Layout>
     </Page>
   );

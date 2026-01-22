@@ -22,7 +22,15 @@ export default function App() {
               <a href="/Products">
                 {t("NavigationMenu.Products")}
               </a>
-          
+              <a href="/History">
+                {t("NavigationMenu.History")}
+              </a>
+              {/* <a href="/Import">
+                {t("NavigationMenu.Import")}
+              </a>
+           <a href="/spreadsheet-edit">
+                {t("NavigationMenu.SpreadSheetEdit")}
+              </a> */}
             </NavMenu>
 
             <Routes pages={pages} />
