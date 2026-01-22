@@ -6,12 +6,12 @@ export async function syncProducts(session) {
   console.log("🏪 Shop:", session.shop);
 
   const products = await fetchAllProducts(session);
-
   console.log(`📦 Shopify returned ${products.length} products`);
 
   let upserted = 0;
 
   for (const p of products) {
+    // ---------- Product upsert ----------
     await prisma.product.upsert({
       where: {
         shop_id: {
@@ -35,38 +35,47 @@ export async function syncProducts(session) {
       },
     });
 
-      // --- NEW: Rollup calculation ---
-  const variantCount = p.variants.length;
-  const totalInventory = p.variants.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0);
-  const prices = p.variants.map(v => parseFloat(v.price));
-  const minPrice = prices.length ? Math.min(...prices) : 0;
-  const maxPrice = prices.length ? Math.max(...prices) : 0;
+    // ---------- Rollup calculation ----------
+    const variants = p.variants ?? [];
 
-  await prisma.variantRollup.upsert({
-    where: {
-      shop_product_rollup: {
-        shop: session.shop,
-        productId: product.id,
-      },
-    },
-    update: {
-      variantCount,
-      totalInventory,
-      minPrice,
-      maxPrice,
-    },
-    create: {
+    const variantCount = variants.length;
+    const totalInventory = variants.reduce(
+      (sum, v) => sum + (v.inventory_quantity ?? 0),
+      0
+    );
+
+    const prices = variants
+      .map(v => parseFloat(v.price))
+      .filter(p => !isNaN(p));
+
+    const minPrice = prices.length ? Math.min(...prices) : 0;
+    const maxPrice = prices.length ? Math.max(...prices) : 0;
+
+await prisma.variantRollup.upsert({
+  where: {
+    shop_productId: {        // ✅ CORRECT NAME
       shop: session.shop,
-      productId: product.id,
-      variantCount,
-      totalInventory,
-      minPrice,
-      maxPrice,
+      productId: String(p.id),
     },
-  });
+  },
+  update: {
+    variantCount,
+    totalInventory,
+    minPrice,
+    maxPrice,
+  },
+  create: {
+    shop: session.shop,
+    productId: String(p.id),
+    variantCount,
+    totalInventory,
+    minPrice,
+    maxPrice,
+  },
+});
 
-  upserted++;
 
+    upserted++;
   }
 
   console.log(`✅ Synced ${upserted} products for ${session.shop}`);
