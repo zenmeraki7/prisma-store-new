@@ -22,6 +22,7 @@ import {
   EditIcon,
   RefreshIcon,
   ExportIcon,
+  ImportIcon,
 } from "@shopify/polaris-icons";
 
 type SpreadsheetRow = {
@@ -261,6 +262,7 @@ export default function SpreadsheetEditPage() {
         {
           content: "Import CSV",
           onAction: () => console.log("Importing..."),
+          icon: ImportIcon,
         },
       ]}
     >
@@ -287,7 +289,7 @@ export default function SpreadsheetEditPage() {
                     Bulk Edit Actions
                   </Text>
                   {selectedCount > 0 && (
-                    <Badge tone="info">{`${selectedCount} selected`}</Badge>
+                    <Badge tone="info">{selectedCount} selected</Badge>
                   )}
                 </InlineStack>
 

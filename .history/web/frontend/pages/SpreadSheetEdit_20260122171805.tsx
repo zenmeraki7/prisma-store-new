@@ -22,6 +22,7 @@ import {
   EditIcon,
   RefreshIcon,
   ExportIcon,
+  ImportMinor,
 } from "@shopify/polaris-icons";
 
 type SpreadsheetRow = {
@@ -261,6 +262,7 @@ export default function SpreadsheetEditPage() {
         {
           content: "Import CSV",
           onAction: () => console.log("Importing..."),
+          icon: ImportMinor,
         },
       ]}
     >
