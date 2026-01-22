@@ -6,7 +6,6 @@ import {
   Text,
   DataTable,
   TextField,
-  Button,
   BlockStack,
 } from "@shopify/polaris";
 
@@ -73,30 +72,27 @@ export default function SpreadsheetEditPage() {
     setDirty(false);
   };
 
- const tableRows = rows.map((row) => [
-  row.productTitle,
-  row.variantTitle,
-  row.sku,
-  <TextField
-    key={`${row.id}-price`}
-    label="Price"
-    labelHidden
-    value={row.price}
-    onChange={(value) => updateCell(row.id, "price", value)}
-    autoComplete="off"
-  />,
-  <TextField
-    key={`${row.id}-compare`}
-    label="Compare at price"
-    labelHidden
-    value={row.compareAtPrice}
-    onChange={(value) =>
-      updateCell(row.id, "compareAtPrice", value)
-    }
-    autoComplete="off"
-  />,
-]);
-
+  const tableRows = rows.map((row) => [
+    row.productTitle,
+    row.variantTitle,
+    row.sku,
+    <TextField
+      key={`${row.id}-price`}
+      label="Price"
+      labelHidden
+      value={row.price}
+      onChange={(value) => updateCell(row.id, "price", value)}
+      autoComplete="off"
+    />,
+    <TextField
+      key={`${row.id}-compare`}
+      label="Compare at price"
+      labelHidden
+      value={row.compareAtPrice}
+      onChange={(value) => updateCell(row.id, "compareAtPrice", value)}
+      autoComplete="off"
+    />,
+  ]);
 
   return (
     <Page

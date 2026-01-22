@@ -25,10 +25,10 @@ export default function App() {
               <a href="/History">
                 {t("NavigationMenu.History")}
               </a>
-              {/* <a href="/Import">
+              <a href="/Import">
                 {t("NavigationMenu.Import")}
               </a>
-           <a href="/spreadsheet-edit">
+           {/* <a href="/spreadsheet-edit">
                 {t("NavigationMenu.SpreadSheetEdit")}
               </a> */}
             </NavMenu>
