@@ -31,9 +31,9 @@ export default function App() {
               <a href="/settings">
                 {t("NavigationMenu.Settings")}
               </a>
-           {/* <a href="/spreadsheet-edit">
+           <a href="/spreadsheetEdit">
                 {t("NavigationMenu.SpreadSheetEdit")}
-              </a> */}
+              </a>
             </NavMenu>
 
             <Routes pages={pages} />
