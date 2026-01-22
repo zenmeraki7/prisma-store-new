@@ -12,7 +12,8 @@
     "Products": "Products",
     "History": "History",
     "Import": "Import",
-    "SpreadSheetEdit": "SpreadSheetEdit"
+    "SpreadSheetEdit": "SpreadSheetEdit",
+    "Settings": "Settings"
   },
   "NotFound": {
     "description": "Check the URL and try again, or use the search bar to find what you need.",

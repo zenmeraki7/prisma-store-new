@@ -12,7 +12,8 @@
     "Products": "Produits",
     "History": "Histoire",
     "Import": "Importer",
-    "SpreadSheetEdit": "Feuille de calcul"
+    "SpreadSheetEdit": "Feuille de calcul",
+    "Settings": "Paramètres"
   },
   "NotFound": {
     "description": "Vérifiez l’URL et réessayez, ou utilisez la barre de recherche pour trouver ce qu’il vous faut.",

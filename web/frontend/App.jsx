@@ -28,6 +28,9 @@ export default function App() {
               <a href="/Import">
                 {t("NavigationMenu.Import")}
               </a>
+              <a href="/settings">
+                {t("NavigationMenu.Settings")}
+              </a>
            {/* <a href="/spreadsheet-edit">
                 {t("NavigationMenu.SpreadSheetEdit")}
               </a> */}
