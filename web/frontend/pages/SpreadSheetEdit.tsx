@@ -240,7 +240,7 @@ export default function SpreadsheetEditPage() {
     <Page
       title="Spreadsheet Editor"
       fullWidth
-      subtitle="Edit multiple variants inline and commit changes as a bulk job"
+      subtitle="Edit multiple variants inline and commit changes"
       primaryAction={{
         content: dirty ? `Commit ${changeCount} changes` : "Commit changes",
         disabled: !dirty,

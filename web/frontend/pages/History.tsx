@@ -236,12 +236,12 @@ export default function HistoryPage() {
       <Text as="span" variant="bodySm" tone="subdued">
         {job.createdAt}
       </Text>,
-      <Box maxWidth="200px">
+      <Box maxWidth="160px">
         <Text as="span" variant="bodySm" truncate>
           {job.filterSummary}
         </Text>
       </Box>,
-      <Box maxWidth="200px">
+      <Box maxWidth="180px">
         <Text as="span" variant="bodySm" fontWeight="medium" truncate>
           {job.mutationSummary}
         </Text>
@@ -254,6 +254,7 @@ export default function HistoryPage() {
             {job.duration}
           </Text>
         )}
+        
       </InlineStack>,
       <InlineStack gap="100">
         <Button size="slim" icon={ViewIcon} variant="plain">
@@ -385,7 +386,9 @@ export default function HistoryPage() {
 
         {/* Sidebar */}
         <Layout.Section variant="oneThird">
-          <BlockStack gap="400">
+       <Box paddingInlineStart="400">
+          <Box maxWidth="320px" width='100%'>
+               <BlockStack gap="400">
             {/* Summary Stats */}
             <Card>
               <BlockStack gap="300">
@@ -485,6 +488,8 @@ export default function HistoryPage() {
               </BlockStack>
             </Card>
           </BlockStack>
+         </Box>
+       </Box>
         </Layout.Section>
       </Layout>
     </Page>

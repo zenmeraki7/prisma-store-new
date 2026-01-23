@@ -34,6 +34,9 @@ export default function App() {
            <a href="/spreadsheetEdit">
                 {t("NavigationMenu.SpreadSheetEdit")}
               </a>
+               <a href="/Export">
+                {t("NavigationMenu.Export")}
+              </a>
             </NavMenu>
 
             <Routes pages={pages} />

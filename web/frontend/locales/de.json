@@ -13,7 +13,8 @@
     "History": "Geschichte",
     "Import": "Import",
     "SpreadSheetEdit": "TabellenkalkulationBearbeiten",
-    "Settings": "Einstellungen"
+    "Settings": "Einstellungen",
+    "Export": "Export"
   },
   "NotFound": {
     "description": "Überprüfe die URL und versuche es erneut. Alternativ kannst du die Suchleiste verwenden, um zu finden, was du suchst.",
