@@ -172,6 +172,7 @@ export default function ImportPage() {
   return (
     <Page
       title="Import Products"
+      fullWidth
       subtitle="Upload CSV files to create bulk edit jobs"
       primaryAction={
         validFileUploads

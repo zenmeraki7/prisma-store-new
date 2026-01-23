@@ -286,6 +286,7 @@ export default function HistoryPage() {
   return (
     <Page
       title="Job History"
+      fullWidth
       subtitle="Monitor and manage your bulk edit operations"
       primaryAction={{
         content: "Refresh",

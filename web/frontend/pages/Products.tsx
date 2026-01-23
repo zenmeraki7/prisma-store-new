@@ -111,6 +111,7 @@ const handleClearFilters = async () => {
   return (
    <Page
   title="Products"
+  fullWidth
   primaryAction={{
     content: "Clear filters",
     onAction: handleClearFilters,
@@ -141,11 +142,11 @@ const handleClearFilters = async () => {
         {/* ---------------- Products Table ---------------- */}
         <Card padding="0">
           {loading && products.length === 0 ? (
-            <BlockStack align="center" inlineAlignment="center" padding="500">
+            <BlockStack align="center" inlineAlign="center" gap="500">
               <Spinner />
             </BlockStack>
           ) : products.length === 0 ? (
-            <BlockStack align="center" inlineAlignment="center" padding="500">
+            <BlockStack align="center" inlineAlign="center" gap="500">
               <Text as="p" tone="subdued">No products found</Text>
             </BlockStack>
           ) : (

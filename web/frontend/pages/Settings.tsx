@@ -62,6 +62,7 @@ export default function SettingsPage() {
   return (
     <Page
       title="Settings"
+      fullWidth
       subtitle="Manage your store configuration and preferences"
       primaryAction={{
         content: "Save changes",
@@ -197,52 +198,7 @@ export default function SettingsPage() {
               </BlockStack>
             </Card>
 
-            {/* Support Settings */}
-            <Card>
-              <BlockStack gap="400">
-                <BlockStack gap="100">
-                  <Text as="h2" variant="headingMd" fontWeight="semibold">
-                    Support Contact
-                  </Text>
-                  <Text as="p" variant="bodyMd" tone="subdued">
-                    Configure support email address for this store
-                  </Text>
-                </BlockStack>
-
-                <Divider />
-
-                <BlockStack gap="300">
-                  <TextField
-                    label="Support email address"
-                    type="email"
-                    value={supportEmail}
-                    onChange={(value) => {
-                      setSupportEmail(value);
-                      setHasChanges(true);
-                    }}
-                    autoComplete="email"
-                    placeholder="support@example.com"
-                  />
-
-                  <InlineStack gap="200">
-                    <Button
-                      onClick={() =>
-                        window.open(
-                          `mailto:${supportEmail}?subject=Bulk Editor Support Request&body=Hello Support Team,%0D%0A%0D%0AI need assistance with...`,
-                          "_blank"
-                        )
-                      }
-                      disabled={!supportEmail}
-                    >
-                      Send test email
-                    </Button>
-                    <Text as="span" variant="bodySm" tone="subdued">
-                      Opens your default email client
-                    </Text>
-                  </InlineStack>
-                </BlockStack>
-              </BlockStack>
-            </Card>
+         
           </BlockStack>
         </Layout.Section>
 
@@ -286,6 +242,52 @@ export default function SettingsPage() {
                 >
                   View documentation
                 </Button>
+              </BlockStack>
+            </Card>
+               {/* Support Settings */}
+            <Card>
+              <BlockStack gap="400">
+                <BlockStack gap="100">
+                  <Text as="h2" variant="headingMd" fontWeight="semibold">
+                    Support Contact
+                  </Text>
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    Configure support email address for this store
+                  </Text>
+                </BlockStack>
+
+                <Divider />
+
+                <BlockStack gap="300">
+                  <TextField
+                    label="Support email address"
+                    type="email"
+                    value={supportEmail}
+                    onChange={(value) => {
+                      setSupportEmail(value);
+                      setHasChanges(true);
+                    }}
+                    autoComplete="email"
+                    placeholder="support@example.com"
+                  />
+
+                  <InlineStack gap="200">
+                    <Button
+                      onClick={() =>
+                        window.open(
+                          `mailto:${supportEmail}?subject=Bulk Editor Support Request&body=Hello Support Team,%0D%0A%0D%0AI need assistance with...`,
+                          "_blank"
+                        )
+                      }
+                      disabled={!supportEmail}
+                    >
+                      Send test email
+                    </Button>
+                    <Text as="span" variant="bodySm" tone="subdued">
+                      Opens your default email client
+                    </Text>
+                  </InlineStack>
+                </BlockStack>
               </BlockStack>
             </Card>
           </BlockStack>
